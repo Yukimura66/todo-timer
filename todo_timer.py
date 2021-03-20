@@ -4,13 +4,16 @@ import time
 import threading
 import getpass
 from typing import Tuple, List
+import unicodedata
 
 DATAFILE = "./timer_data.csv"
 UPDATE_CYCLE = 1
 MESSAGE = """
-start task: start {TaskName}
-show summary: sum
-end task: end
+start task: begin (or b) {TaskName}
+show summary: show (or s)
+sum time: sum
+end task: end (or e)
+quit: quit (or q)
 """
 
 event = threading.Event()
@@ -57,21 +60,49 @@ def sum_time(data: List[str], weekly: bool = True) -> str:
         entry_arr = [v.strip() for v in entry.split(",")]
         start_time = time.mktime(time.strptime(entry_arr[1],
                                                "%Y/%m/%d %H:%M:%S"))
-        end_time = time.mktime(time.strptime(entry_arr[2],
-                                             "%Y/%m/%d %H:%M:%S"))
+        if entry_arr[2] == "":
+            end_time = time.time()
+        else:
+            end_time = time.mktime(time.strptime(entry_arr[2],
+                                                 "%Y/%m/%d %H:%M:%S"))
         if not weekly or start_time > time_wstart:
             time_elapsed = end_time - start_time
             summed_time_float += time_elapsed
     hour = int(summed_time_float // (60 * 60))
     minute = int((summed_time_float % (60 * 60)) // 60)
     second = (summed_time_float % (60 * 60)) % 60
-    return f"{hour}:{minute}:{second:.0f}"
+    return f"{hour}:{minute:02}:{second:02.0f}"
 
 
 def show_data(data: List[str]) -> None:
+    WIDTH_ALL = 30 + 4 + 19 + 4 + 19 + 4 + 12
+    print("-" * WIDTH_ALL)
+    print(f"{'Task name':30s}  | {'Start time':19s}  | {'End time':19s}" +
+          f"  | {'Time elapsed':12s}")
+    print("=" * WIDTH_ALL)
     for entry in data:
         # TODO: formatに変更
-        print(entry.replace(",", "\t"))
+        entry_arr = [v.strip() for v in entry.split(",")]
+        start_time = time.mktime(time.strptime(entry_arr[1],
+                                               "%Y/%m/%d %H:%M:%S"))
+        if entry_arr[2] == "":
+            end_time = time.time()
+        else:
+            end_time = time.mktime(time.strptime(entry_arr[2],
+                                                 "%Y/%m/%d %H:%M:%S"))
+        time_elapsed = end_time - start_time
+        hour = int(time_elapsed // (60 * 60))
+        minute = int((time_elapsed % (60 * 60)) // 60)
+        second = (time_elapsed % (60 * 60)) % 60
+        str_time_elapsed = f"{hour}:{minute:02}:{second:02.0f}"
+        w = 30
+        for c in entry_arr[0]:
+            if unicodedata.east_asian_width(c) in "FWA":
+                w -= 1
+        print("{:{w}.{w}s}  | {:19s}  | {:19s}  | {te:12s}".format(
+            *entry_arr, w=w, te=str_time_elapsed))
+    print("\nTotal Time Weekly: " + sum_time(data))
+    print("-" * WIDTH_ALL)
 
 
 data, task, start_time = load_data(DATAFILE)
@@ -82,7 +113,7 @@ while True:
         input_str = input(">>>")
         input_arr = input_str.strip().split()
         command = input_arr[0]
-        if command == "start":
+        if command in ("begin", "b"):
             if len(input_arr) < 2:
                 print("please input Task Name also.")
             else:
@@ -100,10 +131,12 @@ while True:
                 event.set()
         elif command == "sum":
             print(sum_time(data))
-        elif command == "end":
+        elif command in ("end", "e"):
             print("no task is running.")
-        elif command == "show":
+        elif command in ("show", "s"):
             show_data(data)
+        elif command in ("quit", "q"):
+            sys.exit()
         else:
             print(f"{command} is not valid command.")
     else:
@@ -112,7 +145,7 @@ while True:
             command = input_arr[0]
         else:
             continue
-        if command == "end":
+        if command in ("end", "e"):
             event.clear()
             end_time = time.time()
             with open(DATAFILE, "a") as f:
@@ -123,9 +156,18 @@ while True:
             task = None
         elif command == "sum":
             print(sum_time(data))
-        elif command == "start":
+        elif command == "begin":
             print(f"please end running task: {task}")
-        elif command == "show":
+        elif command in ("show", "s"):
             show_data(data)
+        elif command in ("quit", "q"):
+            sys.exit()
         else:
             print(f"{command} is not valid command.")
+
+# TODO: refactorying
+# TODO: delete entry
+# TODO: modify entry
+# TODO: タイマー表示部分と、コマンド部分を分ける -> ncurseやstdout操作が必要
+#     TODO: 入力コマンドを非表示(input部分を自作inputで置き換える)(上記の代替案)
+
