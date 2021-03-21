@@ -29,7 +29,7 @@ class Timer(threading.Thread):
         self.start_time = start_time
         self.run_flag = True
 
-    def run(self):
+    def run(self) -> None:
         while self.run_flag:
             event.wait()
             time_elapsed_str = time.strftime(
@@ -37,7 +37,7 @@ class Timer(threading.Thread):
             print(f"{self.task} {time_elapsed_str}", flush=True, end="\r")
             time.sleep(UPDATE_CYCLE)
 
-    def stop(self):
+    def stop(self) -> None:
         self.stop_flag = False
 
 
@@ -45,13 +45,13 @@ def read_str_time(str_time: str):
     return time.mktime(time.strptime(str_time, TIME_FORMAT))
 
 
-def show_times(weekly=True) -> None:
-    WIDTH_ALL = 30 + 4 + 19 + 4 + 19 + 4 + 12
+def show_times(weekly: bool = True) -> None:
+    WIDTH_ALL = 4 + 4 + 30 + 4 + 19 + 4 + 19 + 4 + 12
     print("-" * WIDTH_ALL)
-    print(f"{'Task name':30s}  | {'Start time':19s}  | {'End time':19s}" +
-          f"  | {'Time elapsed':12s}")
+    print(f"{'id':4s}  | {'Task name':30s}  | {'Start time':19s}" +
+          f"  | {'End time':19s}  | {'Time elapsed':12s}")
     print("=" * WIDTH_ALL)
-    for entry in data:
+    for id, entry in enumerate(data):
         entry_arr = [v.strip() for v in entry.split(",")]
         start_time = read_str_time(entry_arr[1])
         if entry_arr[2] == "":
@@ -67,8 +67,8 @@ def show_times(weekly=True) -> None:
         for c in entry_arr[0]:
             if unicodedata.east_asian_width(c) in "FWA":
                 w -= 1
-        print("{:{w}.{w}s}  | {:19s}  | {:19s}  | {te:12s}".format(
-            *entry_arr, w=w, te=str_time_elapsed))
+        print("{:4d}  | {:{w}.{w}s}  | {:19s}  | {:19s}  | {te:12s}".format(
+            id, *entry_arr, w=w, te=str_time_elapsed))
     hour, minute, second = _sum_times(weekly)
     str_sum_time = SUM_TIME_FORMAT.format(hour=hour, minute=minute,
                                           second=second)
@@ -105,7 +105,7 @@ def sum_times(weekly: bool = True) -> None:
     print(str_sum_time)
 
 
-def end_timer():
+def end_timer() -> None:
     global timer
     if timer is None:
         print("no task is running.")
@@ -121,7 +121,7 @@ def end_timer():
             data[-1] += f"{end_time_str}"
 
 
-def begin_timer(*task: str):
+def begin_timer(*task: str) -> None:
     global timer
     if timer is not None:
         print(f"please end running task: {timer.task}")
@@ -142,8 +142,38 @@ def begin_timer(*task: str):
         event.set()
 
 
-def quit():
+def quit() -> None:
     sys.exit()
+
+
+def delete(idx_str: str) -> None:
+    idx = int(idx_str)
+    if not data:
+        print("there is no data")
+    else:
+        entry = data[idx]
+        confirm = (input("delete following entry?(y/N)\n" +
+                         entry) or "N")
+        if confirm == "y":
+            _delete_entry(idx)
+            print(f"entry {idx} is deleted.")
+
+
+def _delete_entry(idx: int) -> None:
+    global data
+    if 0 <= idx < len(data):
+        del data[idx]
+        with open(DATAFILE, "r") as f:
+            lines = f.readlines()
+        del lines[idx]
+        with open(DATAFILE, "w") as f:
+            f.writelines(lines)
+    else:
+        print("there is no data for idx: {idx}")
+
+
+def modify(idx: int, **kwargs) -> None:
+    pass
 
 
 def load_data(datafile: str) -> None:
@@ -176,6 +206,8 @@ def run_command(*args: List[str]) -> None:
             show_times(*rest)
         elif command in ("quit", "q"):
             quit()
+        elif command in ("delete", "d"):
+            delete(*rest)
         else:
             print(f"{command} is not valid command.")
 
@@ -192,7 +224,17 @@ while True:
     run_command(*input_str)
 
 
-# TODO: delete entry
+# TODO: add test
+#     CRUD部分をリファクタリングで切り出して関数化し、その部分についてテストを行う
+#     print部分についてはtestは行わない
+
 # TODO: modify entry
+#   modify with index
+# TODO: add tag
+#   sum with tag
+#   show with tag
+# TODO: add ToDo list function
+
+
 # TODO: タイマー表示部分と、コマンド部分を分ける -> ncurseやstdout操作が必要
 #     TODO: 入力コマンドを非表示(input部分を自作inputで置き換える)(上記の代替案)
