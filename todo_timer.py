@@ -117,7 +117,7 @@ def end_timer() -> None:
         with open(DATAFILE, "a") as f:
             end_time_str = time.strftime("%Y/%m/%d %H:%M:%S",
                                          time.localtime(end_time))
-            f.write(f"{end_time_str},\n")
+            f.write(f"{end_time_str}\n")
             data[-1] += f"{end_time_str}"
 
 
@@ -146,7 +146,9 @@ def quit() -> None:
     sys.exit()
 
 
-def delete(idx_str: str) -> None:
+def delete(idx_str: str = None) -> None:
+    if idx_str is None:
+        print("please input index.")
     idx = int(idx_str)
     if not data:
         print("there is no data")
@@ -172,8 +174,35 @@ def _delete_entry(idx: int) -> None:
         print("there is no data for idx: {idx}")
 
 
-def modify(idx: int, **kwargs) -> None:
-    pass
+def modify(idx_str: str = None) -> None:
+    if idx_str is None:
+        print("please input index.")
+    else:
+        global data
+        idx = int(idx_str)
+        if (idx < 0) or (idx >= len(data)):
+            print("There is no index: {idx}")
+        else:
+            entry = data[idx]
+            print("modify: ", entry)
+            task, start_time, end_time, *_ = map(lambda x: x.strip(),
+                                                 entry.split(","))
+            task_new = input(f"Task name(default={task})>>>") or task
+            start_time_new = read_time("Start time", start_time)
+            end_time_new = read_time("End time", end_time)
+            new_entry = ",".join([task_new, start_time_new, end_time_new])
+            data[idx] = new_entry
+
+
+def read_time(time_name: str, default: str) -> str:
+    time_str = (input(f"{time_name}({TIME_FORMAT})(default={default})>>>")
+                or default)
+    try:
+        time.strptime(time_str, TIME_FORMAT)
+    except ValueError:
+        print(f"please input with format {TIME_FORMAT}")
+        time_str = default
+    return time_str
 
 
 def load_data(datafile: str) -> None:
@@ -196,18 +225,20 @@ def load_data(datafile: str) -> None:
 def run_command(*args: List[str]) -> None:
     if len(args) > 0:
         command, *rest = args
-        if command in ("end", "e"):
+        if command in ["end", "e"]:
             end_timer()
-        elif command in ("sum"):
+        elif command in ["sum"]:
             sum_times(*rest)
-        elif command in ("begin", "b"):
+        elif command in ["begin", "b"]:
             begin_timer(*rest)
-        elif command in ("show", "s"):
+        elif command in ["show", "s"]:
             show_times(*rest)
-        elif command in ("quit", "q"):
+        elif command in ["quit", "q"]:
             quit()
-        elif command in ("delete", "d"):
+        elif command in ["delete", "d"]:
             delete(*rest)
+        elif command in ["modify", "m"]:
+            modify(*rest)
         else:
             print(f"{command} is not valid command.")
 
@@ -223,7 +254,7 @@ while True:
     input_str = [v.strip() for v in res.split()]
     run_command(*input_str)
 
-
+# TODO: time を datetime型に変更
 # TODO: add test
 #     CRUD部分をリファクタリングで切り出して関数化し、その部分についてテストを行う
 #     print部分についてはtestは行わない
